@@ -1,0 +1,21 @@
+{
+    "name": "PHP shell",
+    "description": "Brings PHP to browser",
+    "version": "0.0.1",
+    "manifest_version": 2,
+    "devtools_page": "components/devtools.html",
+    "icons": {
+        "16": "assets/php-32.png",
+        "32": "assets/php-32.png",
+        "128": "assets/php-32.png"
+    },
+    "background": {
+        "scripts": [
+            "js/extension.js",
+            "js/chrome.js"
+        ]
+    },
+    "permissions": [
+        "https://php-minishell.appspot.com/*"
+    ]
+}
