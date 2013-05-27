@@ -1,0 +1,28 @@
+#inputLabel {
+    border: 1px solid #000000;
+    display: block;
+    font-family: "source code pro", "ubuntu mono", monaco, "lucida sans mono", consolas, courier, monospace;
+    font-size: .9em;
+    position: relative;
+}
+
+#inputLabel::before {
+    content: ">>";
+    display: block;
+    font-family: inherit;
+    line-height: 1.5em;
+    padding: .1em;
+}
+
+#input {
+    border: 0;
+    display: block;
+    font-family: inherit;
+    left: 1.1em;
+    margin: .2em;
+    outline: 0;
+    position: absolute;
+    resize: none;
+    right: 0;
+    top: 0;
+}
