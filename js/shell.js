@@ -1,42 +1,32 @@
 (function (window) {
     "use strict";
-    var document, token, form, output;
+    var document, form;
     document = window.document;
     form = document.getElementById('console-view');
-    output = document.getElementById('console-messages');
-    function getToken(extension) {
-        var data, document;
-        document = window.document;
-        data = document.createElement('div');
-        data.style.display = 'none';
-        data.innerHTML = extension.xhr.responseText;
-        document.body.appendChild(data);
-        token = document.getElementsByName('token')[0].value;
-    }
-    function getEvaluatedStatement(extension) {
+    function printStatement(PHPShell) {
         var statementReturn;
+        if (!printStatement.out) {
+            printStatement.out = document.getElementById('console-messages');
+        }
         statementReturn = document.createElement('pre');
-        statementReturn.innerHTML = extension.xhr.responseText;
-        output.appendChild(statementReturn);
+        statementReturn.innerHTML = PHPShell.xhr.responseText;
+        printStatement.out.appendChild(statementReturn);
     }
     function sendStatement(event) {
-        var input, inputData, statement;
-        input = form.elements[0];
-        event.preventDefault();
-        if (!token) {
-            return;
+        var inputData, statement;
+        if (!sendStatement.input) {
+            sendStatement.input = form.elements[0];
         }
+        event.preventDefault();
         inputData = 'innerHTML';
-        if (input.tagName === 'INPUT') {
+        if (sendStatement.input.tagName === 'INPUT') {
             inputData = 'value';
         }
-        statement = encodeURIComponent(input[inputData]).replace(/\+/g, '%2B');
-        input[inputData] = '';
-        window.chrome.runtime.sendMessage(
-            {'path': 'shell.do?token=' + token + '&statement=' + statement},
-            getEvaluatedStatement
-        );
+        statement = encodeURIComponent(sendStatement.input[inputData]);
+        statement = statement.replace(/\+/g, '%2B');
+        sendStatement.input[inputData] = '';
+        sendStatement.shell.parse(statement, printStatement);
     }
+    sendStatement.shell = new window.PHPShell();
     form.addEventListener('submit', sendStatement);
-    window.chrome.runtime.sendMessage({}, getToken);
 }(window));
