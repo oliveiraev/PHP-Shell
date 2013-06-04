@@ -3,30 +3,30 @@
     var document, form;
     document = window.document;
     form = document.getElementById('console-view');
-    function printStatement(PHPShell) {
+    function parsedData(parsed) {
         var statementReturn;
-        if (!printStatement.out) {
-            printStatement.out = document.getElementById('console-messages');
+        if (!parsedData.out) {
+            parsedData.out = document.getElementById('console-messages');
         }
         statementReturn = document.createElement('pre');
-        statementReturn.innerHTML = PHPShell.xhr.responseText;
-        printStatement.out.appendChild(statementReturn);
+        statementReturn.innerHTML = parsed.response;
+        parsedData.out.appendChild(statementReturn);
+        form.reset();
     }
     function sendStatement(event) {
-        var inputData, statement;
-        if (!sendStatement.input) {
-            sendStatement.input = form.elements[0];
-        }
+        var element, i, statement, inputData;
         event.preventDefault();
-        inputData = 'innerHTML';
-        if (sendStatement.input.tagName === 'INPUT') {
-            inputData = 'value';
+        statement = '';
+        for (i = 0; i < sendStatement.ln; i += 1) {
+            element = form.elements[i];
+            inputData = element.tagName === 'TEXTAREA' ? 'innerHTML' : 'value';
+            statement += element[inputData];
         }
-        statement = encodeURIComponent(sendStatement.input[inputData]);
-        statement = statement.replace(/\+/g, '%2B');
-        sendStatement.input[inputData] = '';
-        sendStatement.shell.parse(statement, printStatement);
+        statement = encodeURIComponent(statement).replace(/\+/g, '%2B');
+        sendStatement.shell.parse(statement);
     }
+    sendStatement.ln = form.elements.length;
     sendStatement.shell = new window.PHPShell();
+    document.addEventListener('parse', parsedData);
     form.addEventListener('submit', sendStatement);
 }(window));
