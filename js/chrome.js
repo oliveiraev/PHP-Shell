@@ -1,51 +1,114 @@
+/**
+ * Here comes the Google Chrome/blink-related adaptations.
+ *
+ * @author Evandro Oliveira <evandrofranco [at] gmail [dot] com>
+ *
+ * Due to permission issues -
+ * (http://stackoverflow.com/questions/16703446/another-cross-xhr-related) -
+ * it's impossible to make cross-domain xhr calls directly from shell.html page.
+ *
+ * Chrome docs recommends use a background script that "listen" for requests and
+ * is able to make cross-domain xhr requests. These requests should be replied
+ * in form of a callback, received from the listener.
+ * #Ref (http://developer.chrome.com/extensions/devtools.html)
+ *
+ * To make this behaviour most transparent as possible, we've implemented such a
+ * type of Proxy (http://en.wikipedia.org/wiki/Proxy_pattern) that is
+ * responsible to redirect xhr requests of low-permissioned instances to the
+ * listener, that has elevated privileges.
+ */
 (function (window) {
     "use strict";
-    var document, PHPShell;
-    document = window.document;
-    PHPShell = new window.PHPShell();
-    function afterParseDispatcher(response) {
-        var parseEvent = document.createEvent('Event');
-        parseEvent.initEvent('parse', false, false);
-        parseEvent.response = response.xhr.responseText;
-        document.dispatchEvent(parseEvent);
-    }
-    function beforeParseListener(event) {
-        var path, message;
-        path = 'shell.do?token=' + event.token + '&statement=';
-        message = {path: path + event.statement};
-        window.chrome.runtime.sendMessage(message, afterParseDispatcher);
-    }
-    function xhrListen(loadedCallback) {
-        return function () {
-            if (!loadedCallback.sender) {
-                return;
+    var instance, setup, PHPShell;
+    // lookup reduction
+    PHPShell = window.PHPShell.prototype;
+    // Here, we skip setup() call. We don't want token in this instance
+    setup = PHPShell.setup;
+    PHPShell.setup = function () {};
+    // This instance will be responsible to call the server
+    instance = new window.PHPShell();
+    // Here we listen for server calls and redirect them to _instance_
+    window.chrome.runtime.onMessage.addListener(
+        function (message, sender, callback) {
+            var i, action, args;
+            args = [];
+            action = message.action;
+            delete message.action;
+            // If we're about to make an xhr-call, set up a listener for it
+            if (action === 'send') {
+                callback.sender = sender;
+                instance.xhr.onreadystatechange = function () {
+                    if (!(this.readyState === 4 && callback.sender)) {
+                        return;
+                    }
+                    this.responseHeaders = this.getAllResponseHeaders();
+                    callback.sender = null;
+                    callback(this);
+                };
             }
-            if (PHPShell.xhr.readyState === 4) {
-                loadedCallback.sender = null;
-                loadedCallback(PHPShell);
+            // Here, we redirect the arguments to instance.xhr._desired_method_
+            for (i in message) {
+                if (message.hasOwnProperty(i)) {
+                    args.push(message[i]);
+                }
             }
-        };
-    }
-    function messageListener(message, sender, callback) {
-        callback.sender = sender;
-        PHPShell.xhr.addEventListener('readystatechange', xhrListen(callback));
-        PHPShell.open(message.method, message.path);
-        return true;
-    }
-    function setupListener(event) {
-        function setup(response) {
-            var data, html;
-            data = new RegExp('(<form[\\s\\S]*</form>)', 'mg');
-            html = document.createElement('div');
-            html.innerHTML = data.exec(response.xhr.responseText)[1];
-            event.instance.token = html.querySelector('[name=token]').value;
+            instance.xhr[action].apply(instance.xhr, args);
+            return true;
         }
-        window.chrome.runtime.sendMessage({}, setup);
-    }
-    window.chrome.runtime.onMessage.addListener(messageListener);
-    document.addEventListener('beforeParse', beforeParseListener);
-    document.addEventListener('setup', setupListener);
-    // IDE helper
+    );
+    // Setting up an xhr proxy for new instances of PHPShell
+    PHPShell.setup = function () {
+        var i, document, oldXhr, newXhr;
+        document = this.events.ownerDocument;
+        oldXhr = this.xhr;
+        // We need a DOM#object# to provide event listeners
+        newXhr = this.xhr = document.createDocumentFragment();
+        // By default, DOM#objects# doesn't handle onreadystatechange
+        function xhrListener(event) {
+            if (typeof newXhr.onreadystatechange === 'function') {
+                newXhr.onreadystatechange(event);
+            }
+        }
+        // Here, we grab the global instance.xhr and map to the local one
+        function response(message) {
+            var i, event;
+            for (i in message) {
+                if (message.hasOwnProperty(i)) {
+                    newXhr[i] = message[i];
+                }
+            }
+            // And, also, make sure to dispatch readystatechange
+            event = document.createEvent('Event');
+            event.initEvent('readystatechange', true, false);
+            newXhr.dispatchEvent(event);
+        }
+        // Proxy local xhr methods.
+        // Calling, for instance, xhr.open will send a request to the background
+        // instance perform the open action.
+        function proxy(action) {
+            var args;
+            return function () {
+                args = arguments;
+                args.action = action;
+                window.chrome.runtime.sendMessage(args, response);
+            };
+        }
+        // Mapping real xhr properties to the faked one
+        for (i in oldXhr) {
+            if (oldXhr.hasOwnProperty(i)) {
+                newXhr[i] = oldXhr[i];
+            }
+        }
+        newXhr.open = proxy('open');
+        newXhr.send = proxy('send');
+        newXhr.getAllResponseHeaders = function () {
+            return this.responseHeaders || '';
+        };
+        // Making sure that xhr.onreadystatechange will be called
+        newXhr.addEventListener('readystatechange', xhrListener);
+        setup.apply(this);
+    };
+    // IDE helper/syntatic sugar
     //noinspection JSUnresolvedVariable
     window.chrome = window.chrome || {
         devtools: {
