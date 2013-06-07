@@ -43,11 +43,13 @@
      * @type {DocumentFragment}
      */
     PHPShell.prototype.events = window.document.createDocumentFragment();
+
     /**
      * The statements parser server (URI)
      * @type {string}
      */
     PHPShell.prototype.host = null;
+
     /**
      * Xhr Calls Helper
      *
@@ -59,6 +61,7 @@
         this.xhr.open(method || 'get', this.host + (path || ''), true);
         this.xhr.send();
     };
+
     /**
      * Makes event listeners receive the instance on the event argument.
      * Makes sure that shared/prototye event listeners be called too.
@@ -77,6 +80,7 @@
         setupEvent.initEvent('setup', false, false);
         this.events.dispatchEvent(setupEvent);
     };
+
     /**
      * The parser
      *
@@ -108,5 +112,6 @@
         }
         this.open('get', prepend + 'statement=' + statement);
     };
+
     window.PHPShell = PHPShell;
 }(window));
