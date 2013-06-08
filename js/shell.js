@@ -5,7 +5,7 @@
     form = document.getElementById('console-view');
     output = document.getElementById('console-messages');
     PHPShell = window.PHPShell;
-    PHPShell.prototype.events.addEventListener('setup', function (event) {
+    PHPShell.events.addEventListener('setup', function (event) {
         event.instance.xhr.onreadystatechange = function () {
             var data, html;
             if (this.readyState !== 4) {
