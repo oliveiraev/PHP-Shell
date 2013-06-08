@@ -83,25 +83,6 @@
     };
 
     /**
-     * Makes event listeners receive the instance on the event argument.
-     * Makes sure that shared/prototye event listeners be called too.
-     * Also, dispatches a setup event.
-     */
-    PHPShell.prototype.setup = function () {
-        var setupEvent;
-        this.events.dispatchEvent = (function (instance, dispatch) {
-            return function (event) {
-                event.instance = instance;
-                instance.constructor.prototype.events.dispatchEvent(event);
-                dispatch.call(instance.events, event);
-            };
-        }(this, this.events.dispatchEvent));
-        setupEvent = document.createEvent('Event');
-        setupEvent.initEvent('setup', false, false);
-        this.events.dispatchEvent(setupEvent);
-    };
-
-    /**
      * The parser
      *
      * Main method of the class. Send statement to the server and dispatch a
