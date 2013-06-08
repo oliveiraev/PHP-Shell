@@ -26,23 +26,43 @@
 
     /**
      * PHPShell class definition and constructor
+     *
+     * Attach new XMLHttpRequest to each instance and new DocumentFragment to
+     * handle events too.
+     * Also, make sure that attach an instance reference to the event, so the
+     * shared event listener can perform actions on the instance that dispatches
+     * the event.
+     *
+     * Finally, dispatch a setup event.
+     *
      * @returns {PHPShell}
      * @constructor
      */
     function PHPShell() {
+        var setupEvent = document.createEvent('Event');
+        setupEvent.initEvent('setup', false, false);
         this.xhr = new window.XMLHttpRequest();
         this.events = document.createDocumentFragment();
-        // Override this method with browsers' particular implementations
-        // Dont forget to call it too!
-        this.setup();
+        this.events.dispatchEvent = (function (instance, dispatch) {
+            return function (event) {
+                event.instance = instance;
+                PHPShell.events.dispatchEvent(event);
+                dispatch.call(instance.events, event);
+            }.bind(instance);
+        }(this, this.events.dispatchEvent));
+        this.events.dispatchEvent(setupEvent);
         return this;
     }
 
     /**
-     * Event handler
+     * Shared event handler
+     *
+     * Attach events here to listen on all instances. Each instance also have
+     * its very own event handler to perform per-instance callbacks.
+     * @static
      * @type {DocumentFragment}
      */
-    PHPShell.prototype.events = window.document.createDocumentFragment();
+    PHPShell.events = window.document.createDocumentFragment();
 
     /**
      * The statements parser server (URI)
@@ -104,7 +124,7 @@
                     return;
                 }
                 event.initEvent('parse', true, false);
-                instance.events.dispatchEvent(event);
+                instance.events.dispatchEvent.call(instance, event);
             };
         }(this));
         if (this.host.indexOf(prepend) > -1) {
