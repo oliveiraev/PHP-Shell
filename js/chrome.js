@@ -19,14 +19,11 @@
  */
 (function (window) {
     "use strict";
-    var instance, setup, PHPShell;
+    var instance, PHPShell;
     // lookup reduction
-    PHPShell = window.PHPShell.prototype;
-    // Here, we skip setup() call. We don't want token in this instance
-    setup = PHPShell.setup;
-    PHPShell.setup = function () {};
+    PHPShell = window.PHPShell;
     // This instance will be responsible to call the server
-    instance = new window.PHPShell();
+    instance = new PHPShell();
     // Here we listen for server calls and redirect them to _instance_
     window.chrome.runtime.onMessage.addListener(
         function (message, sender, callback) {
@@ -56,35 +53,41 @@
             return true;
         }
     );
-    // Setting up an xhr proxy for new instances of PHPShell
-    PHPShell.setup = function () {
-        var i, document, oldXhr, newXhr;
-        document = this.events.ownerDocument;
-        oldXhr = this.xhr;
-        // We need a DOM#object# to provide event listeners
-        newXhr = this.xhr = document.createDocumentFragment();
-        // By default, DOM#objects# doesn't handle onreadystatechange
-        function xhrListener(event) {
-            if (typeof newXhr.onreadystatechange === 'function') {
-                newXhr.onreadystatechange(event);
+    /**
+     * Setting up an xhr proxy for new instances of PHPShell
+     *
+     * @param realXhr {XMLHttpRequest} This instance will be abandoned
+     * We need it only to make up the initial fakeXhr properties
+     * @param fakeXhr {DocumentFragment} The relevant instance
+     * This will be responsible to route calls into chrome messages, when
+     * required, and update itself on message responses.
+     * @returns {DocumentFragment} fakeXhr bumped up
+     */
+    function xhrProxy(realXhr, fakeXhr) {
+        var i;
+        // Mapping real xhr properties to the faked one
+        for (i in realXhr) {
+            if (realXhr.hasOwnProperty(i)) {
+                fakeXhr[i] = realXhr[i];
             }
         }
-        // Here, we grab the global instance.xhr and map to the local one
+        // When got a response, then remap the properties from the cool xhr to
+        // our local proxy
         function response(message) {
             var i, event;
             for (i in message) {
                 if (message.hasOwnProperty(i)) {
-                    newXhr[i] = message[i];
+                    fakeXhr[i] = message[i];
                 }
             }
             // And, also, make sure to dispatch readystatechange
-            event = document.createEvent('Event');
+            event = fakeXhr.ownerDocument.createEvent('Event');
             event.initEvent('readystatechange', true, false);
-            newXhr.dispatchEvent(event);
+            fakeXhr.dispatchEvent(event);
         }
-        // Proxy local xhr methods.
+        // Proxying the methods
         // Calling, for instance, xhr.open will send a request to the background
-        // instance perform the open action.
+        // instance perform the real open action.
         function proxy(action) {
             var args;
             return function () {
@@ -93,21 +96,26 @@
                 window.chrome.runtime.sendMessage(args, response);
             };
         }
-        // Mapping real xhr properties to the faked one
-        for (i in oldXhr) {
-            if (oldXhr.hasOwnProperty(i)) {
-                newXhr[i] = oldXhr[i];
-            }
-        }
-        newXhr.open = proxy('open');
-        newXhr.send = proxy('send');
-        newXhr.getAllResponseHeaders = function () {
+        fakeXhr.open = proxy('open');
+        fakeXhr.send = proxy('send');
+        fakeXhr.getAllResponseHeaders = function () {
             return this.responseHeaders || '';
         };
-        // Making sure that xhr.onreadystatechange will be called
-        newXhr.addEventListener('readystatechange', xhrListener);
-        setup.apply(this);
-    };
+        // By default, DOM#objects# doesn't handle onreadystatechange
+        // We'll make sure that such method be called
+        fakeXhr.addEventListener('readystatechange', function (event) {
+            if (typeof fakeXhr.onreadystatechange === 'function') {
+                fakeXhr.onreadystatechange(event);
+            }
+        });
+        return fakeXhr;
+    }
+    PHPShell.events.addEventListener('setup', function (event) {
+        var realXhr, fakeXhr;
+        realXhr = event.instance.xhr;
+        fakeXhr = event.instance.events.ownerDocument.createDocumentFragment();
+        event.instance.xhr = xhrProxy(realXhr, fakeXhr);
+    });
     // IDE helper/syntatic sugar
     //noinspection JSUnresolvedVariable
     window.chrome = window.chrome || {
