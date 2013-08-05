@@ -23,6 +23,20 @@
     });
     PHPShell = new PHPShell();
     input.addEventListener("keydown", function (event) {
+        var index, history;
+        if ((event.keyCode !== 38 && event.keyCode !== 40) || this.multiline) {
+            return true;
+        }
+        history = this.history;
+        index = history.index + event.keyCode - 39;
+        if (history[index]) {
+            this.value = history[index];
+            this.rows = this.value.split("/\n\r|\n|\r/mg").length - 1;
+            history.index = index;
+        }
+        return false;
+    });
+    input.addEventListener("keydown", function (event) {
         if (event.keyCode !== 13) {
             return true;
         }
@@ -43,7 +57,13 @@
     });
     form.addEventListener('submit', function (event) {
         event.preventDefault();
+        if (!input.history) {
+            input.history = [];
+        }
         PHPShell.parse(encodeURIComponent(input.value).replace(/\+/g, '%2B'));
+        input.history.push(input.value);
+        input.history.index = input.history.length;
+        input.value = input.innerHTML = "";
     });
     PHPShell.events.addEventListener('parse', function () {
         var statementReturn;
