@@ -43,7 +43,13 @@
     });
     form.addEventListener('submit', function (event) {
         event.preventDefault();
+        if (!input.history) {
+            input.history = [];
+        }
         PHPShell.parse(encodeURIComponent(input.value).replace(/\+/g, '%2B'));
+        input.history.push(input.value);
+        input.history.index = input.history.length;
+        input.value = input.innerHTML = "";
     });
     PHPShell.events.addEventListener('parse', function () {
         var statementReturn;
