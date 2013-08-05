@@ -1,8 +1,9 @@
 (function (window) {
     "use strict";
-    var document, PHPShell, form, output;
+    var document, PHPShell, form, input, output;
     document = window.document;
     form = document.getElementById('console-view');
+    input = document.getElementById('input');
     output = document.getElementById('console-messages');
     PHPShell = window.PHPShell;
     PHPShell.events.addEventListener('setup', function (event) {
@@ -21,17 +22,28 @@
         event.instance.open();
     });
     PHPShell = new PHPShell();
-    form.addEventListener('submit', function (event) {
-        var element, elements, i, ln, statement, inputData;
-        event.preventDefault();
-        elements = form.elements;
-        statement = '';
-        for (i = 0, ln = elements.length; i < ln; i += 1) {
-            element = elements[i];
-            inputData = element.tagName === 'TEXTAREA' ? 'innerHTML' : 'value';
-            statement += element[inputData];
+    input.addEventListener("keydown", function (event) {
+        if (event.keyCode !== 13) {
+            return true;
         }
-        PHPShell.parse(encodeURIComponent(statement).replace(/\+/g, '%2B'));
+        if (this.multiline === undefined) {
+            this.multiline = false;
+        }
+        if (event.shiftKey === this.multiline) {
+            this.form.dispatchEvent(new window.CustomEvent("submit"));
+            this.multiline = false;
+            this.setAttribute("rows", "1");
+            return false;
+        }
+        if (event.shiftKey) {
+            this.multiline = true;
+        }
+        this.setAttribute("rows", this.getAttribute("rows") + 1);
+        return true;
+    });
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        PHPShell.parse(encodeURIComponent(input.value).replace(/\+/g, '%2B'));
     });
     PHPShell.events.addEventListener('parse', function () {
         var statementReturn;
